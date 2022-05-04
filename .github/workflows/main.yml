@@ -1,0 +1,55 @@
+name: deploy to ECS cluster.
+on: 
+ push:
+   branches:
+     - main
+
+jobs:
+ deploy:
+    runs-on: 
+      - self-hosted
+      - golang
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      - name: check path
+        run: ls -la && pwd && docker --version
+        
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-3
+          
+      - name: ecr login
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, Tag, and Push the Image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: api-repo
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+    
+      - name: update task defination and service
+        env:
+          REPOSITORY_URL: 426073574926.dkr.ecr.ap-southeast-3.amazonaws.com/api-repo
+          AWS_DEFAULT_REGION: ap-southeast-3
+          TASK_DEFINITION_NAME: api_task_defination 
+          CLUSTER_NAME: dev-skorlife-ecs-cluster
+          SERVICE_NAME: api
+          IMG_TAG: latest
+          EXECUTION_ROLE_ARN: arn:aws:iam::426073574926:role/dev-fargate_task_execution
+        run: | 
+         TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition "$TASK_DEFINITION_NAME" --region "${AWS_DEFAULT_REGION}")
+         NEW_CONTAINER_DEFINTIION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$REPOSITORY_URL:$IMG_TAG" '.taskDefinition.containerDefinitions[0].image = $IMAGE | .taskDefinition.containerDefinitions[0]')
+         aws ecs register-task-definition --region "${AWS_DEFAULT_REGION}" --family "${TASK_DEFINITION_NAME}" --container-definitions "${NEW_CONTAINER_DEFINTIION}" --cpu 512 --memory 1024 --network-mode "awsvpc" --requires-compatibilities "FARGATE" --execution-role-arn "${EXECUTION_ROLE_ARN}" --task-role-arn "${EXECUTION_ROLE_ARN}" 
+         echo "Updating the service..."
+         aws ecs update-service --region "${AWS_DEFAULT_REGION}" --cluster "${CLUSTER_NAME}" --service "${SERVICE_NAME}"  --task-definition "${TASK_DEFINITION_NAME}"
