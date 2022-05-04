@@ -1,0 +1,17 @@
+database:
+  driver: "postgres"
+  dbname: "postgres"
+  username: "postgres"
+  password: "postgres"
+  #host: "dev-skorlife-gstst-pg-db.c8enxweeipjh.ap-south-1.rds.amazonaws.com" # "0.0.0.0" for local dev
+  host: "dev-skorlife-pg-db.cjqjyxgeyqxp.ap-southeast-3.rds.amazonaws.com"
+  port: "5432"
+  log_mode: true
+
+#server:
+#  host: "0.0.0.0"
+#  port: "8000"
+#  secret: "secret"
+#  environment: "dev" #prod
+#  request:
+#    timeout: 100
