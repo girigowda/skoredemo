@@ -8,7 +8,7 @@ jobs:
  deploy:
     runs-on: 
       - self-hosted
-      - golang
+      - goahead
       
     steps:
       - name: Checkout
